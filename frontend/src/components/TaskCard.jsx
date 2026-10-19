@@ -23,7 +23,6 @@ export default function TaskCard({ task, onStatusChange, onDelete }) {
       </div>
       {task.description && <p className="task-card__desc">{task.description}</p>}
       <div className="task-card__footer">
-        <span className="task-card__id">#{task.id}</span>
         <div className="task-card__actions">
           {currentIndex > 0 && (
             <button

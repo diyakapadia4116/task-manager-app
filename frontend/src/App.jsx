@@ -3,15 +3,22 @@ import Header from "./components/Header.jsx";
 import ActivityLog from "./components/ActivityLog.jsx";
 import NewTaskForm from "./components/NewTaskForm.jsx";
 import Board from "./components/Board.jsx";
+import AuthPage from "./components/AuthPage.jsx";
 import * as api from "./api/taskApi.js";
 
 const formatTime = () =>
   new Date().toLocaleTimeString("en-US", { hour12: false });
 
 export default function App() {
+  const [token, setToken] = useState(() => localStorage.getItem("nook_token") || "");
+  const [user, setUser] = useState(() => {
+    const saved = localStorage.getItem("nook_user");
+    return saved ? JSON.parse(saved) : null;
+  });
+
   const [tasks, setTasks] = useState([]);
   const [connected, setConnected] = useState(true);
-  const [loading, setLoading] = useState(true);
+  const [loading, setLoading] = useState(false);
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState("");
   const [log, setLog] = useState([]);
@@ -20,7 +27,25 @@ export default function App() {
     setLog((prev) => [{ method, url, time: formatTime() }, ...prev].slice(0, 8));
   }, []);
 
+  const handleAuthSuccess = ({ token: newToken, user: newUser }) => {
+    localStorage.setItem("nook_token", newToken);
+    localStorage.setItem("nook_user", JSON.stringify(newUser));
+    setToken(newToken);
+    setUser(newUser);
+    setError("");
+  };
+
+  const handleLogout = () => {
+    localStorage.removeItem("nook_token");
+    localStorage.removeItem("nook_user");
+    setToken("");
+    setUser(null);
+    setTasks([]);
+  };
+
   const loadTasks = useCallback(async () => {
+    if (!token) return;
+    setLoading(true);
     try {
       const res = await api.fetchTasks();
       setTasks(res.data.data);
@@ -28,18 +53,25 @@ export default function App() {
       pushLog("GET", "/api/tasks");
       setError("");
     } catch (err) {
-      setConnected(false);
-      setError(
-        "Can't reach the API. Make sure the backend is running on http://localhost:5000."
-      );
+      if (err.response?.status === 401) {
+        handleLogout();
+        setError("Session expired. Please log in again.");
+      } else {
+        setConnected(false);
+        setError(
+          "Can't reach the API. Make sure the backend is running on http://localhost:5000."
+        );
+      }
     } finally {
       setLoading(false);
     }
-  }, [pushLog]);
+  }, [token, pushLog]);
 
   useEffect(() => {
-    loadTasks();
-  }, [loadTasks]);
+    if (token) {
+      loadTasks();
+    }
+  }, [token, loadTasks]);
 
   const handleCreate = async ({ title, description }) => {
     setSubmitting(true);
@@ -81,18 +113,29 @@ export default function App() {
 
   return (
     <div className="app">
-      <Header connected={connected} taskCount={tasks.length} />
+      <Header
+        connected={connected}
+        taskCount={token ? tasks.length : undefined}
+        user={user}
+        onLogout={handleLogout}
+      />
 
       <ActivityLog entries={log} />
 
       {error && <div className="banner banner--error">{error}</div>}
 
-      <NewTaskForm onCreate={handleCreate} submitting={submitting} />
-
-      {loading ? (
-        <div className="loading">Loading tasks…</div>
+      {!token ? (
+        <AuthPage onAuthSuccess={handleAuthSuccess} pushLog={pushLog} />
       ) : (
-        <Board tasks={tasks} onStatusChange={handleStatusChange} onDelete={handleDelete} />
+        <>
+          <NewTaskForm onCreate={handleCreate} submitting={submitting} />
+
+          {loading ? (
+            <div className="loading">Loading tasks…</div>
+          ) : (
+            <Board tasks={tasks} onStatusChange={handleStatusChange} onDelete={handleDelete} />
+          )}
+        </>
       )}
 
       <footer className="app-footer">

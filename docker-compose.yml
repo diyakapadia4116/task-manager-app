@@ -1,0 +1,54 @@
+# ── Services ─────────────────────────────────────────────────────────────────
+services:
+
+  # ── MongoDB ────────────────────────────────────────────────────────────────
+  mongodb:
+    image: mongo:7
+    container_name: task-mongodb
+    restart: unless-stopped
+    ports:
+      - "27017:27017"           # host:container
+    volumes:
+      - mongo-data:/data/db     # persist data across restarts
+    networks:
+      - app-network
+
+  # ── Backend (Node/Express) ──────────────────────────────────────────────────
+  backend:
+    build:
+      context: ./backend        # path to backend/Dockerfile
+    container_name: task-backend
+    restart: unless-stopped
+    ports:
+      - "5000:5000"
+    environment:
+      - PORT=5000
+      # Use the MongoDB *service name* as the host — Docker resolves it on app-network
+      - MONGODB_URI=mongodb://mongodb:27017/task-manager
+      - JWT_SECRET=nook_jwt_super_secret_2025
+    depends_on:
+      - mongodb                 # start mongodb before backend
+    networks:
+      - app-network
+
+  # ── Frontend (React / Vite preview) ─────────────────────────────────────────
+  frontend:
+    build:
+      context: ./frontend       # path to frontend/Dockerfile
+    container_name: task-frontend
+    restart: unless-stopped
+    ports:
+      - "5173:5173"
+    depends_on:
+      - backend                 # start backend before frontend
+    networks:
+      - app-network
+
+# ── Named Volume ──────────────────────────────────────────────────────────────
+volumes:
+  mongo-data:
+
+# ── Network ───────────────────────────────────────────────────────────────────
+networks:
+  app-network:
+    driver: bridge

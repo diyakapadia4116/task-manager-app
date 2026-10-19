@@ -1,4 +1,4 @@
-export default function Header({ connected, taskCount }) {
+export default function Header({ connected, taskCount, user, onLogout }) {
   return (
     <header className="app-header">
       <div className="app-header__brand">
@@ -9,16 +9,30 @@ export default function Header({ connected, taskCount }) {
         </div>
       </div>
       <div className="app-header__meta">
-        <span className="task-count">
-          <span className="task-count__icon">📌</span>
-          {taskCount} task{taskCount === 1 ? "" : "s"}
-        </span>
+        {user && (
+          <span className="user-badge">
+            <span className="user-badge__avatar">👤</span>
+            <span className="user-badge__name">{user.name}</span>
+          </span>
+        )}
+        {taskCount !== undefined && (
+          <span className="task-count">
+            <span className="task-count__icon">📌</span>
+            {taskCount} task{taskCount === 1 ? "" : "s"}
+          </span>
+        )}
         <span className={`status-pill ${connected ? "status-pill--up" : "status-pill--down"}`}>
           <span className="status-pill__dot" />
           {connected ? "API connected" : "API offline"}
         </span>
+        {user && onLogout && (
+          <button type="button" className="logout-btn" onClick={onLogout} title="Sign Out">
+            Logout 🚪
+          </button>
+        )}
       </div>
     </header>
   );
 }
+
 
